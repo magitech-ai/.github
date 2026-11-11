@@ -1,0 +1,158 @@
+# Reusable Python CI for uv-based magitech-ai repos.
+#
+# Shared skeleton: checkout -> setup-uv -> install Python -> install deps ->
+# lint -> test -> enforce the 100% coverage floor. Callers override the
+# commands that differ per repo.
+#
+# Caller example (anima):
+#   jobs:
+#     test:
+#       uses: magitech-ai/.github/.github/workflows/python-ci.yml@main
+#       with:
+#         python-version: "3.12"
+#
+# Caller example (magitech-harness, needs anima as a sibling checkout):
+#   jobs:
+#     test:
+#       uses: magitech-ai/.github/.github/workflows/python-ci.yml@main
+#       with:
+#         python-version: "3.12"
+#         checkout-path: "magitech-harness"
+#         working-directory: "magitech-harness"
+#         pre-commands: |
+#           git clone --depth 1 https://github.com/magitech-ai/anima.git anima
+#
+# Sibling clones in pre-commands rely on the magitech-ai repos being public;
+# no token is needed for them. The 100% coverage floor is enforced twice:
+# each repo's pyproject carries --cov-fail-under=100 --cov-branch, and the
+# coverage step below re-checks it, so a repo whose pytest config loses the
+# floor still fails here instead of silently passing.
+
+name: Python CI
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version installed via `uv python install`"
+        required: false
+        default: "3.12"
+        type: string
+      checkout-path:
+        description: "Subdirectory the calling repo is checked out into ('.' = workspace root)"
+        required: false
+        default: "."
+        type: string
+      working-directory:
+        description: "Directory the install/lint/test steps run in"
+        required: false
+        default: "."
+        type: string
+      pre-commands:
+        description: "Shell commands run after checkout, before install (e.g. clone sibling repos)"
+        required: false
+        default: ""
+        type: string
+      install-command:
+        description: "Dependency install command"
+        required: false
+        default: "uv sync"
+        type: string
+      run-lint:
+        description: "Whether to run the lint step"
+        required: false
+        default: true
+        type: boolean
+      lint-commands:
+        description: "Lint/typecheck commands (multiline shell)"
+        required: false
+        default: |
+          uv run ruff check src tests
+          uv run ruff format --check src tests
+          uv run mypy src
+        type: string
+      run-tests:
+        description: "Whether to run the test step"
+        required: false
+        default: true
+        type: boolean
+      test-commands:
+        description: "Test commands (multiline shell)"
+        required: false
+        default: "uv run pytest"
+        type: string
+      test-env-json:
+        description: "JSON object of env vars for the test step, e.g. '{\"FOO\": \"bar\"}'"
+        required: false
+        default: "{}"
+        type: string
+      enforce-coverage:
+        description: "Whether to re-check the coverage floor after tests"
+        required: false
+        default: true
+        type: boolean
+      coverage-floor:
+        description: "Minimum total (statement + branch) coverage percent"
+        required: false
+        default: 100
+        type: number
+      runs-on:
+        description: "Runner label"
+        required: false
+        default: "ubuntu-latest"
+        type: string
+      timeout-minutes:
+        description: "Job timeout in minutes"
+        required: false
+        default: 20
+        type: number
+
+jobs:
+  ci:
+    runs-on: ${{ inputs.runs-on }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: ${{ inputs.checkout-path }}
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          version: "0.12.24"
+
+      - name: Set up Python ${{ inputs.python-version }}
+        run: uv python install ${{ inputs.python-version }}
+
+      - name: Pre-install setup
+        if: inputs.pre-commands != ''
+        run: ${{ inputs.pre-commands }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.install-command }}
+
+      - name: Lint
+        if: inputs.run-lint
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.lint-commands }}
+
+      - name: Set test environment
+        if: inputs.run-tests && inputs.test-env-json != '{}'
+        shell: python
+        run: |
+          import json, os
+          d = json.loads(r'''${{ inputs.test-env-json }}''')
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              for k, v in d.items():
+                  f.write(f"{k}={v}\n")
+
+      - name: Test
+        if: inputs.run-tests
+        working-directory: ${{ inputs.working-directory }}
+        run: ${{ inputs.test-commands }}
+
+      - name: Enforce coverage floor
+        if: inputs.run-tests && inputs.enforce-coverage
+        working-directory: ${{ inputs.working-directory }}
+        run: uv run python -m coverage report --fail-under=${{ inputs.coverage-floor }}
