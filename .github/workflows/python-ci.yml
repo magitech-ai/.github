@@ -27,6 +27,19 @@
 # each repo's pyproject carries --cov-fail-under=100 --cov-branch, and the
 # coverage step below re-checks it, so a repo whose pytest config loses the
 # floor still fails here instead of silently passing.
+#
+# OS matrix: the job runs on every label in `os-matrix-json` (default:
+# ubuntu/windows/macos latest). Callers pass a subset to narrow it.
+# Windows runners use pwsh for `run:` steps; pre-commands and lint/test
+# commands must stay shell-neutral (plain commands, one per line).
+#
+# Proxy bypass: the "Sanitize proxy bypass list" step runs before Test and
+# rewrites NO_PROXY/no_proxy in the runner env — bracketed IPv6 entries
+# (e.g. "[::1]") make httpx 0.28.1 raise InvalidURL on any AsyncClient
+# construction, so brackets are stripped, and localhost/127.0.0.1 are
+# always kept in the bypass list so HTTP tests binding localhost never go
+# through a proxy. Callers must not set NO_PROXY via test-env-json; the
+# sanitize step owns those two variables.
 
 name: Python CI
 
@@ -96,10 +109,10 @@ on:
         required: false
         default: 100
         type: number
-      runs-on:
-        description: "Runner label"
+      os-matrix-json:
+        description: "JSON array of runner labels, e.g. '[\"ubuntu-latest\", \"windows-latest\", \"macos-latest\"]'"
         required: false
-        default: "ubuntu-latest"
+        default: '["ubuntu-latest", "windows-latest", "macos-latest"]'
         type: string
       timeout-minutes:
         description: "Job timeout in minutes"
@@ -109,7 +122,11 @@ on:
 
 jobs:
   ci:
-    runs-on: ${{ inputs.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.os-matrix-json) }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
       - uses: actions/checkout@v5
@@ -146,6 +163,30 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a') as f:
               for k, v in d.items():
                   f.write(f"{k}={v}\n")
+
+      - name: Sanitize proxy bypass list
+        if: inputs.run-tests
+        shell: python
+        run: |
+          import os
+          # Bracketed IPv6 entries in NO_PROXY/no_proxy (e.g. "[::1]")
+          # make httpx 0.28.1 raise InvalidURL on any AsyncClient
+          # construction. Strip the brackets and always keep
+          # localhost/127.0.0.1 bypassed so HTTP tests binding localhost
+          # never go through a proxy.
+          for var in ("NO_PROXY", "no_proxy"):
+              parts = []
+              for p in os.environ.get(var, "").split(","):
+                  p = p.strip()
+                  if p.startswith("[") and p.endswith("]"):
+                      p = p[1:-1]
+                  if p and p not in parts:
+                      parts.append(p)
+              for keep in ("localhost", "127.0.0.1"):
+                  if keep not in parts:
+                      parts.append(keep)
+              with open(os.environ["GITHUB_ENV"], "a") as f:
+                  f.write(f"{var}={','.join(parts)}\n")
 
       - name: Test
         if: inputs.run-tests
