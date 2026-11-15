@@ -48,6 +48,19 @@ See `docs/adr/` in each repository for its architectural decisions. To propose
 a new ADR, create `docs/adr/NNNN-short-name.md` following the existing
 template and submit it as part of a PR with a description of the decision.
 
+## Issue Tracking & Triage
+
+All repositories in `@magitech-ai` use GitHub Issues and the `gh` CLI with a
+canonical five-role triage vocabulary:
+
+| Label | Meaning |
+| :--- | :--- |
+| `needs-triage` | Maintainer needs to evaluate this issue |
+| `needs-info` | Waiting on reporter for more information |
+| `ready-for-agent` | Fully specified, ready for autonomous agent execution |
+| `ready-for-human` | Requires human implementation or review |
+| `wontfix` | Out of scope or will not be actioned |
+
 ## Pull Requests
 
 Open a PR against `main` from a branch. CI must be green (Test & Lint, 100%
