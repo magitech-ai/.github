@@ -10,3 +10,13 @@ Provide a concise, technical overview of the changes.
 
 ## Changes & Seams
 - Details of modifications.
+
+## Factory provenance (agent-produced PRs only)
+
+- Trigger issue: #___
+- Execution: bounded `hsh` session in an isolated worktree
+- Verification (command + observed result, not a claim):
+- Human gate: this PR is left open for review and merge; the agent did not merge it.
+
+See `agents-home/docs/FACTORY.md` for the loop contract. Leave this section out
+of PRs that were not produced by the factory loop.
