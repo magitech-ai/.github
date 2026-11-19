@@ -14,6 +14,7 @@ Provide a concise, technical overview of the changes.
 ## Factory provenance (agent-produced PRs only)
 
 - Trigger issue: #___
+- Author model: ___ (exact model id; must differ from the reviewer model)
 - Execution: bounded `hsh` session in an isolated worktree
 - Verification (command + observed result, not a claim):
 - Human gate: this PR is left open for review and merge; the agent did not merge it.
