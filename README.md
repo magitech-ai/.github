@@ -1,8 +1,8 @@
 # magitech-ai/.github
 
-**New here? Read [START_HERE](https://github.com/magitech-ai/agents-home/blob/main/START_HERE.md).**
-It is the single entry point for the agent home, software factory, evidence and
-audit records. (Private repo; Magitech members only.)
+**New here? Read the [agents-home README](https://github.com/magitech-ai/agents-home#readme).**
+It is the entry point for the agent home, skills, knowledge bundles, evidence
+and audit records. (Private repo; Magitech members only.)
 
 Org-wide defaults for the magitech-ai organization. GitHub treats this
 specially named repository as the source of shared files for every repository
