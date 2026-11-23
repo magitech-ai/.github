@@ -77,7 +77,10 @@ on:
         default: true
         type: boolean
       lint-commands:
-        description: "Lint/typecheck commands (multiline shell)"
+        description: >-
+          Lint/typecheck commands (multiline shell). The default covers `src`
+          and `tests`; a caller with a `scripts/` directory must override this
+          and append `scripts` so helper scripts cannot ship unlinted.
         required: false
         default: |
           uv run ruff check src tests
@@ -121,6 +124,20 @@ on:
         type: number
 
 jobs:
+  validate-workflows:
+    name: Validate workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # In a reusable workflow, actions/checkout checks out the CALLER's repo,
+      # so this validates the calling repo's own .github/workflows/*.yml.
+      - uses: actions/checkout@v5
+
+      - name: Lint workflows
+        uses: raven-actions/actionlint@v2.2.0
+        with:
+          version: "1.7.12"
+
   ci:
     strategy:
       fail-fast: false
