@@ -28,8 +28,14 @@
 # coverage step below re-checks it, so a repo whose pytest config loses the
 # floor still fails here instead of silently passing.
 #
-# OS matrix: the job runs on every label in `os-matrix-json` (default:
-# ubuntu/windows/macos latest). Callers pass a subset to narrow it.
+# OS matrix: the job runs on every label in `os-matrix-json`
+# (default: ubuntu only). Windows and macOS bill at 2x and 10x, so they no
+# longer run on every push and PR: org Actions minutes hit 200% of the Team
+# plan in Nov 2026, with ~2,200 billed minutes spent on windows/macos for
+# roughly 720 real ones. Cross-OS CI still exists — each caller schedules a
+# small `cross-os.yml` that calls this same reusable workflow with the full
+# matrix (weekly, staggered). Callers that genuinely need an OS on every run
+# pass the label in `os-matrix-json`.
 # Windows runners use pwsh for `run:` steps; pre-commands and lint/test
 # commands must stay shell-neutral (plain commands, one per line).
 #
@@ -115,7 +121,7 @@ on:
       os-matrix-json:
         description: "JSON array of runner labels, e.g. '[\"ubuntu-latest\", \"windows-latest\", \"macos-latest\"]'"
         required: false
-        default: '["ubuntu-latest", "windows-latest", "macos-latest"]'
+        default: '["ubuntu-latest"]'
         type: string
       timeout-minutes:
         description: "Job timeout in minutes"
